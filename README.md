@@ -107,10 +107,7 @@ A full-stack web application for booking coolies at Indian railway stations. Bui
 - `PUT /api/notifications/read-all` - Mark all notifications as read
 - `DELETE /api/notifications/:id` - Delete notification
 
-## License
-
-This project is licensed under the MIT License.
 
 ## Contributors
 
-- Your Name - Initial work 
+- Rajnish
