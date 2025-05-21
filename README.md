@@ -1,3 +1,4 @@
+<!-- filepath: c:\Users\rajni\coolie-booking-system\README.md -->
 # Coolie Booking System
 
 A full-stack web application for booking coolies at Indian railway stations. Built with the MERN stack (MongoDB, Express.js, React.js, Node.js).
@@ -9,12 +10,60 @@ A full-stack web application for booking coolies at Indian railway stations. Bui
 - **Coolie Features**: Accept/complete bookings, update availability, receive notifications
 - **Admin Features**: Approve coolie registrations, view statistics, manage users
 
+## Project Structure
+
+```
+coolie-booking-system/
+├── backend/            # Node.js, Express.js, MongoDB backend
+│   ├── src/
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   └── routes/
+│   ├── .env
+│   ├── package.json
+│   ├── server.js
+│   └── README.md       # Backend specific README
+├── frontend/           # React.js frontend
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── context/
+│   │   └── pages/
+│   ├── .env
+│   ├── package.json
+│   └── README.md       # Frontend specific README
+├── .gitignore
+├── package.json        # (If you have a root package.json for managing both)
+└── README.md           # This file (Overall project README)
+```
+
 ## Tech Stack
 
-- **Frontend**: React.js, React Router, Tailwind CSS, Axios
-- **Backend**: Node.js, Express.js, MongoDB, Mongoose
+### Overall
+- **Full Stack**: MERN (MongoDB, Express.js, React.js, Node.js)
 - **Authentication**: JWT (JSON Web Tokens)
-- **Other**: RESTful API, Responsive Design
+- **API**: RESTful API
+- **Design**: Responsive Design
+
+### Backend
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- bcrypt
+- cors
+- dotenv
+- morgan
+
+### Frontend
+- React.js
+- React Router
+- Tailwind CSS
+- Axios
+- Web Vitals
+
 
 ## Installation
 
@@ -26,17 +75,17 @@ A full-stack web application for booking coolies at Indian railway stations. Bui
 ### Backend Setup
 
 1. Navigate to the backend directory:
-   ```
+   ```bash
    cd backend
    ```
 
 2. Install dependencies:
-   ```
+   ```bash
    npm install
    ```
 
-3. Create a `.env` file in the backend directory with the following variables:
-   ```
+3. Create a `.env` file in the `backend` directory with the following variables:
+   ```env
    PORT=5000
    MONGO_URI=mongodb://localhost:27017/coolie-booking-system
    JWT_SECRET=your_jwt_secret
@@ -45,68 +94,96 @@ A full-stack web application for booking coolies at Indian railway stations. Bui
    ```
 
 4. Start the backend server:
-   ```
+   ```bash
    npm run dev
    ```
+   The backend server will typically run on `http://localhost:5000`.
 
 ### Frontend Setup
 
 1. Navigate to the frontend directory:
-   ```
+   ```bash
    cd frontend
    ```
 
 2. Install dependencies:
-   ```
+   ```bash
    npm install
    ```
 
 3. Start the frontend development server:
-   ```
+   ```bash
    npm start
    ```
+   The frontend development server will typically run on `http://localhost:3000`.
+
+
+## Available Scripts
+
+### Backend (`coolie-booking-system/backend/`)
+- `npm start`: Starts the server in production mode.
+- `npm run dev`: Starts the server in development mode using nodemon for automatic restarts.
+- `npm test`: (Currently not implemented) Placeholder for running tests.
+
+### Frontend (`coolie-booking-system/frontend/`)
+- `npm start`: Runs the app in development mode.
+- `npm run build`: Builds the app for production.
+- `npm test`: Runs the test runner.
+- `npm run eject`: Ejects from Create React App configuration (one-way operation).
 
 ## API Endpoints
 
-### Authentication Routes
-- `POST /api/auth/register` - Register a new passenger
-- `POST /api/auth/register-coolie` - Register a new coolie
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/me` - Get current user
-- `GET /api/auth/logout` - Logout user
+The backend provides the following RESTful API endpoints. All endpoints are prefixed with `/api`.
 
-### User Routes
-- `GET /api/users` - Get all users (admin only)
-- `GET /api/users/:id` - Get single user
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user (admin only)
+### Authentication Routes (`/auth`)
+- `POST /register`: Register a new passenger.
+- `POST /register-coolie`: Register a new coolie.
+- `POST /login`: Login user (passenger, coolie, or admin).
+- `GET /me`: Get details of the currently logged-in user.
+- `GET /logout`: Logout the current user.
 
-### Coolie Routes
-- `GET /api/coolies` - Get all coolies
-- `GET /api/coolies/:id` - Get single coolie
-- `PUT /api/coolies/:id` - Update coolie
-- `PUT /api/coolies/:id/availability` - Update coolie availability
-- `PUT /api/coolies/:id/approve` - Approve/reject coolie (admin only)
-- `GET /api/coolies/available` - Get available coolies by station and platform
+### User Routes (`/users`)
+- `GET /`: Get all users (admin only).
+- `GET /:id`: Get a single user by ID.
+- `PUT /:id`: Update user details.
+- `DELETE /:id`: Delete a user (admin only).
 
-### Booking Routes
-- `POST /api/bookings` - Create a new booking
-- `GET /api/bookings` - Get all bookings (filtered by user role)
-- `GET /api/bookings/:id` - Get single booking
-- `PUT /api/bookings/:id/status` - Update booking status
-- `POST /api/bookings/:id/rate` - Rate a completed booking
+### Coolie Routes (`/coolies`)
+- `GET /`: Get all coolies.
+- `GET /:id`: Get a single coolie by ID.
+- `PUT /:id`: Update coolie details (coolie only, for their own profile).
+- `PUT /:id/availability`: Update coolie availability status (coolie only).
+- `PUT /:id/approve`: Approve or reject a coolie registration (admin only).
+- `GET /available`: Get available coolies based on station and platform (query params: `station`, `platform`).
 
-### Admin Routes
-- `GET /api/admin/stats` - Get dashboard statistics
-- `GET /api/admin/pending-coolies` - Get pending coolie approvals
-- `GET /api/admin/booking-stats` - Get booking statistics
+### Booking Routes (`/bookings`)
+- `POST /`: Create a new booking (passenger only).
+- `GET /`: Get all bookings.
+    - Passengers see their own bookings.
+    - Coolies see bookings assigned to them.
+    - Admins see all bookings.
+- `GET /:id`: Get a single booking by ID.
+- `PUT /:id/status`: Update booking status (e.g., accepted by coolie, completed, cancelled).
+- `POST /:id/rate`: Rate a completed booking (passenger only).
 
-### Notification Routes
-- `GET /api/notifications` - Get all notifications for current user
-- `PUT /api/notifications/:id/read` - Mark notification as read
-- `PUT /api/notifications/read-all` - Mark all notifications as read
-- `DELETE /api/notifications/:id` - Delete notification
+### Admin Routes (`/admin`)
+- `GET /stats`: Get dashboard statistics (e.g., total users, bookings, pending coolies).
+- `GET /pending-coolies`: Get a list of coolies pending registration approval.
+- `GET /booking-stats`: Get booking-related statistics.
 
+### Notification Routes (`/notifications`)
+- `GET /`: Get all notifications for the current user.
+- `PUT /:id/read`: Mark a specific notification as read.
+- `PUT /read-all`: Mark all notifications as read for the current user.
+- `DELETE /:id`: Delete a specific notification.
+
+## Frontend Details
+
+For more detailed information about the frontend's folder structure, components, and pages, please refer to the `frontend/README.md` file.
+
+## Backend Details
+
+For more detailed information about the backend's folder structure, controllers, models, and middleware, please refer to the `backend/README.md` file.
 
 ## Contributors
 
