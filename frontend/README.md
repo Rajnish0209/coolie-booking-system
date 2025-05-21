@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This directory contains the frontend code for the Coolie Booking System. It is a React.js application that provides the user interface for interacting with the booking system.
 
-## Available Scripts
+## Tech Stack
 
-In the project directory, you can run:
+- React.js
+- React Router
+- Tailwind CSS
+- Axios
+- Web Vitals
 
-### `npm start`
+## Folder Structure
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+frontend/
+├── public/             # Static assets and HTML template
+│   ├── index.html      # Main HTML file
+│   └── ...             # Other static assets (favicon, manifest, etc.)
+├── src/
+│   ├── components/     # Reusable UI components
+│   │   ├── auth/       # Authentication related components
+│   │   ├── layout/     # Layout components (Navbar, Footer)
+│   │   └── routing/    # Private/Protected route components
+│   ├── context/        # React Context for global state management
+│   ├── pages/          # Top-level page components
+│   ├── App.js          # Main application component with routing
+│   ├── App.css         # Global styles for App component
+│   ├── index.js        # Entry point of the React application
+│   ├── index.css       # Global styles
+│   └── ...             # Other files (service worker, setupTests, etc.)
+├── .env                # Environment variables (if any, for frontend)
+├── package.json        # Project dependencies and scripts
+└── README.md           # This file
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Setup
 
-### `npm test`
+1.  Navigate to the frontend directory:
+    ```bash
+    cd frontend
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Start the frontend development server:
+    ```bash
+    npm start
+    ```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Scripts
 
-### `npm run build`
+- `npm start`: Runs the app in development mode.
+- `npm run build`: Builds the app for production.
+- `npm test`: Runs the test runner.
+- `npm run eject`: Ejects from Create React App configuration (one-way operation).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Available Pages & Components
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Core Components:
+*   **`App.js`**: Main application wrapper, sets up routing.
+*   **`index.js`**: Renders the `App` component into the DOM.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Layout Components (`src/components/layout/`):
+*   **`Navbar.js`**: Navigation bar displayed on most pages.
+*   **`Footer.js`**: Footer section.
 
-### `npm run eject`
+### Authentication Components (`src/components/auth/`):
+*   **`Login.js`**: User login form.
+*   **`Register.js`**: Passenger registration form.
+*   **`RegisterCoolie.js`**: Coolie registration form.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Routing (`src/components/routing/`):
+*   **`PrivateRoute.js`**: Wrapper to protect routes that require authentication.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Context (`src/context/`):
+*   **`AuthContext.js`**: Manages authentication state (user, token, login/logout functions) globally.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Pages (`src/pages/`):
+*   **`Home.js`**: Landing page of the application.
+*   **`Dashboard.js`**: Main dashboard after login, content varies by user role.
+*   **`UserProfile.js`**: Page for users to view and edit their profile.
+*   **`CoolieProfile.js`**: Page for coolies to view and manage their profile and availability.
+*   **`AdminPanel.js`**: Admin dashboard for managing users, coolies, and viewing stats.
+*   **`AdminProfile.js`**: Page for admin to view/edit their profile.
+*   **`BookingForm.js`**: Form for passengers to book a coolie.
+*   **`BookingHistory.js`**: Page for users/coolies to view their booking history.
+*   **`CoolieApprovalHistory.js`**: Page for admins to view history of coolie approvals.
+*   **`NotFound.js`**: Page displayed for invalid routes.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+<!-- The rest of the file is the default Create React App README -->
