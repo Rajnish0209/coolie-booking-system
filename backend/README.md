@@ -11,7 +11,7 @@ This directory contains the backend code for the Coolie Booking System. It is a 
 - JWT (JSON Web Tokens)
 - bcrypt
 - cors
-- dotenvA
+- dotenv
 - morgan
 
 ## Folder Structure

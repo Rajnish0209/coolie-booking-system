@@ -17,15 +17,19 @@ const coolieSchema = new mongoose.Schema({
     required: [true, 'Please specify your gender'],
     enum: ['male', 'female', 'other']
   },
-  idProof: {
-    type: String,
-    required: [true, 'Please provide an ID proof number'],
-    trim: true
-  },
   idProofType: {
     type: String,
     required: [true, 'Please specify ID proof type'],
-    enum: ['aadhar', 'pan', 'voter', 'driving']
+    enum: ['aadhar', 'pan', 'voterid']
+  },
+  idProofNumber: {
+    type: String,
+    required: [true, 'ID proof number is required'],
+    unique: true
+  },
+  idProofUrl: {
+    type: String,
+    required: false
   },
   station: {
     type: String,
@@ -48,6 +52,13 @@ const coolieSchema = new mongoose.Schema({
     type: String,
     default: 'Not specified'
   },
+  vehicleDetails: {
+    type: String,
+    default: ''
+  },
+  languagesSpoken: [{
+    type: String
+  }],
   ratings: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -85,4 +96,4 @@ coolieSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Coolie', coolieSchema); 
+module.exports = mongoose.model('Coolie', coolieSchema);

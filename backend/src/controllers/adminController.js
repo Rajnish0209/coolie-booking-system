@@ -71,7 +71,8 @@ exports.getPendingCoolies = async (req, res) => {
   try {
     const coolies = await Coolie.find({ isApproved: false })
       .sort('-createdAt')
-      .populate('user', 'name email phone');
+      .populate('user', 'name email phone imageUrl') // Added imageUrl to populate
+      .select('+idProofUrl'); // Ensure idProofUrl is selected if it's not by default or explicitly excluded
     
     res.status(200).json({
       success: true,
@@ -99,63 +100,97 @@ exports.getBookingStats = async (req, res) => {
           _id: '$status',
           count: { $sum: 1 }
         }
-      }
-    ]);
-    
-    // Get bookings by station
-    const stationStats = await Booking.aggregate([
+      },
       {
-        $group: {
-          _id: '$station',
-          count: { $sum: 1 }
+        $project: {
+          _id: 0,
+          status: '$_id',
+          count: 1
         }
-      },
-      {
-        $sort: { count: -1 }
-      },
-      {
-        $limit: 5
       }
     ]);
-    
-    // Get bookings by date (last 7 days)
-    const today = new Date();
-    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    
-    const dailyStats = await Booking.aggregate([
+
+    // Get bookings over time (e.g., last 7 days)
+    const bookingsOverTime = await Booking.aggregate([
       {
         $match: {
-          createdAt: { $gte: lastWeek }
+          createdAt: { $gte: new Date(new Date() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
         }
       },
       {
         $group: {
-          _id: {
-            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
-          },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
           count: { $sum: 1 }
         }
       },
-      {
-        $sort: { _id: 1 }
-      }
+      { $sort: { _id: 1 } }
     ]);
-    
+
     res.status(200).json({
       success: true,
       data: {
         statusStats,
-        stationStats,
-        dailyStats
+        bookingsOverTime
       }
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while fetching booking stats'
     });
   }
 };
 
-module.exports = exports; 
+// @desc    Get all users
+// @route   GET /api/admin/users
+// @access  Private/Admin
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find(); // Removed .populate('coolieProfile')
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching users',
+    });
+  }
+};
+
+// @desc    Get all bookings
+// @route   GET /api/admin/bookings
+// @access  Private/Admin
+exports.getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find()
+      .populate('user', 'name email')
+      .populate({
+        path: 'coolie',
+        select: 'user station coolieIdNumber',
+        populate: {
+          path: 'user',
+          select: 'name email'
+        }
+      })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: bookings.length,
+      data: bookings,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching bookings',
+    });
+  }
+};
+
+module.exports = exports;

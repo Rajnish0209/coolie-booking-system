@@ -6,7 +6,8 @@ This directory contains the frontend code for the Coolie Booking System. It is a
 
 - React.js
 - React Router
-- Tailwind CSS
+- Bootstrap 5
+- CSS (index.css)
 - Axios
 - Web Vitals
 
@@ -25,9 +26,8 @@ frontend/
 │   ├── context/        # React Context for global state management
 │   ├── pages/          # Top-level page components
 │   ├── App.js          # Main application component with routing
-│   ├── App.css         # Global styles for App component
 │   ├── index.js        # Entry point of the React application
-│   ├── index.css       # Global styles
+│   ├── index.css       # Global styles, including Bootstrap imports or custom global styles
 │   └── ...             # Other files (service worker, setupTests, etc.)
 ├── .env                # Environment variables (if any, for frontend)
 ├── package.json        # Project dependencies and scripts

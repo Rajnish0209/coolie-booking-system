@@ -60,10 +60,15 @@ coolie-booking-system/
 ### Frontend
 - React.js
 - React Router
-- Tailwind CSS
+- Bootstrap 5
+- CSS (index.css)
 - Axios
 - Web Vitals
 
+
+## Key Changes
+- **Session Management**: Refactored `AuthContext.js` to use role-specific tokens (`token_passenger`, `token_coolie`, `token_admin`) in `localStorage`, resolving session conflicts between different user roles.
+- **Global Styling**: Consolidated global styles into `frontend/src/index.css` and integrated Bootstrap 5 for UI consistency and responsiveness.
 
 ## Installation
 

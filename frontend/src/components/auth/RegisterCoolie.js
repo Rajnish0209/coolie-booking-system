@@ -11,11 +11,13 @@ const RegisterCoolie = () => {
     password2: '',
     age: '',
     gender: '',
-    idProof: '',
+    idProofNumber: '', // Renamed from idProof to idProofNumber
     idProofType: 'aadhar',
     station: '',
     platformNumbers: []
   });
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [idProofImageFile, setIdProofImageFile] = useState(null);
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [platformCheckboxes, setPlatformCheckboxes] = useState([
@@ -51,13 +53,21 @@ const RegisterCoolie = () => {
     password2, 
     age, 
     gender, 
-    idProof, 
+    idProofNumber, // Renamed
     idProofType, 
     station 
   } = formData;
 
   const onChange = e => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.type === 'file') {
+      if (e.target.name === 'profileImage') { // Changed name to match FormData key
+        setProfileImageFile(e.target.files[0]);
+      } else if (e.target.name === 'idProofImage') { // Changed name to match FormData key
+        setIdProofImageFile(e.target.files[0]);
+      }
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    }
     setFormError('');
   };
 
@@ -78,6 +88,7 @@ const RegisterCoolie = () => {
   const onSubmit = async e => {
     e.preventDefault();
     setIsLoading(true);
+    setFormError('');
 
     if (password !== password2) {
       setFormError('Passwords do not match');
@@ -103,284 +114,297 @@ const RegisterCoolie = () => {
       return;
     }
 
-    try {
-      await registerCoolie({
-        name,
-        email,
-        phone,
-        password,
-        age: parseInt(age),
-        gender,
-        idProof,
-        idProofType,
-        station,
-        platformNumbers: formData.platformNumbers
-      });
-      // If successful, the useEffect will handle redirection
-    } catch (err) {
+    if (!profileImageFile) {
+      setFormError('Please upload a profile picture.');
       setIsLoading(false);
+      return;
+    }
+
+    if (!idProofImageFile) {
+      setFormError('Please upload an ID proof image.');
+      setIsLoading(false);
+      return;
+    }
+
+    const dataToSubmit = new FormData();
+    dataToSubmit.append('name', name);
+    dataToSubmit.append('email', email);
+    dataToSubmit.append('phone', phone);
+    dataToSubmit.append('password', password);
+    dataToSubmit.append('age', parseInt(age));
+    dataToSubmit.append('gender', gender);
+    dataToSubmit.append('idProofNumber', idProofNumber);
+    dataToSubmit.append('idProofType', idProofType);
+    dataToSubmit.append('station', station);
+    dataToSubmit.append('platformNumbers', formData.platformNumbers.join(','));
+    dataToSubmit.append('profileImage', profileImageFile); // Key matches backend multer field
+    dataToSubmit.append('idProofImage', idProofImageFile); // Key matches backend multer field
+
+    try {
+      await registerCoolie(dataToSubmit); 
+    } catch (err) {
       // Error is handled in useEffect via context
+      setIsLoading(false); 
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Register as a Coolie
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
-              register as a passenger
-            </Link>
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={onSubmit}>
-          <div className="rounded-md shadow-sm space-y-3">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                autoComplete="name"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Full Name"
-                value={name}
-                onChange={onChange}
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={onChange}
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                autoComplete="tel"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Phone Number (10 digits)"
-                value={phone}
-                onChange={onChange}
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={onChange}
-                minLength="6"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="password2" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <input
-                id="password2"
-                name="password2"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
-                value={password2}
-                onChange={onChange}
-                minLength="6"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="age" className="block text-sm font-medium text-gray-700">
-                Age
-              </label>
-              <input
-                id="age"
-                name="age"
-                type="number"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Age (18-65)"
-                value={age}
-                onChange={onChange}
-                min="18"
-                max="65"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
-                Gender
-              </label>
-              <select
-                id="gender"
-                name="gender"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                value={gender}
-                onChange={onChange}
-              >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            
-            <div>
-              <label htmlFor="idProofType" className="block text-sm font-medium text-gray-700">
-                ID Proof Type
-              </label>
-              <select
-                id="idProofType"
-                name="idProofType"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                value={idProofType}
-                onChange={onChange}
-              >
-                <option value="aadhar">Aadhar Card</option>
-                <option value="pan">PAN Card</option>
-                <option value="voter">Voter ID</option>
-                <option value="driving">Driving License</option>
-              </select>
-            </div>
-            
-            <div>
-              <label htmlFor="idProof" className="block text-sm font-medium text-gray-700">
-                ID Proof Number
-              </label>
-              <input
-                id="idProof"
-                name="idProof"
-                type="text"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="ID Proof Number"
-                value={idProof}
-                onChange={onChange}
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="station" className="block text-sm font-medium text-gray-700">
-                Station
-              </label>
-              <input
-                id="station"
-                name="station"
-                type="text"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Station Name"
-                value={station}
-                onChange={onChange}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Platform Numbers
-              </label>
-              <div className="mt-2 grid grid-cols-5 gap-2">
-                {platformCheckboxes.map((platform) => (
-                  <div key={platform.id} className="flex items-center">
-                    <input
-                      id={`platform-${platform.id}`}
-                      name={`platform-${platform.id}`}
-                      type="checkbox"
-                      checked={platform.checked}
-                      onChange={() => handlePlatformChange(platform.id)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor={`platform-${platform.id}`} className="ml-2 text-sm text-gray-700">
-                      {platform.id}
-                    </label>
+    <div className="container mt-5">
+      <div className="row justify-content-center">
+        <div className="col-md-8 col-lg-6">
+          <div className="card shadow-sm">
+            <div className="card-body p-4 p-md-5">
+              <h2 className="card-title text-center mb-4">
+                Register as a Coolie
+              </h2>
+              <p className="text-center text-muted mb-4">
+                Or{' '}
+                <Link to="/register" className="text-primary">
+                  register as a passenger
+                </Link>
+              </p>
+              {/* Added encType to form */}
+              <form onSubmit={onSubmit} encType="multipart/form-data">
+                {formError && (
+                  <div className="alert alert-danger" role="alert">
+                    {formError}
                   </div>
-                ))}
-              </div>
+                )}
+
+                <div className="form-group mb-3">
+                  <label htmlFor="name">Full Name</label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    required
+                    className="form-control"
+                    placeholder="Full Name"
+                    value={name}
+                    onChange={onChange}
+                  />
+                </div>
+                
+                <div className="form-group mb-3">
+                  <label htmlFor="email">Email address</label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    className="form-control"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={onChange}
+                  />
+                </div>
+                
+                <div className="form-group mb-3">
+                  <label htmlFor="phone">Phone Number</label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    className="form-control"
+                    placeholder="Phone Number (10 digits)"
+                    value={phone}
+                    onChange={onChange}
+                  />
+                </div>
+                
+                <div className="form-group mb-3">
+                  <label htmlFor="password">Password</label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    className="form-control"
+                    placeholder="Password (min. 6 characters)"
+                    value={password}
+                    onChange={onChange}
+                  />
+                </div>
+
+                <div className="form-group mb-3">
+                  <label htmlFor="password2">Confirm Password</label>
+                  <input
+                    id="password2"
+                    name="password2"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    className="form-control"
+                    placeholder="Confirm Password"
+                    value={password2}
+                    onChange={onChange}
+                  />
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6">
+                    <div className="form-group mb-3">
+                      <label htmlFor="age">Age</label>
+                      <input
+                        id="age"
+                        name="age"
+                        type="number"
+                        required
+                        className="form-control"
+                        placeholder="Age (18-65)"
+                        value={age}
+                        onChange={onChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="col-md-6">
+                    <div className="form-group mb-3">
+                      <label htmlFor="gender">Gender</label>
+                      <select
+                        id="gender"
+                        name="gender"
+                        required
+                        className="form-control"
+                        value={gender}
+                        onChange={onChange}
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-group mb-3">
+                  <label htmlFor="idProofNumber">ID Proof Number</label>
+                  <input
+                    id="idProofNumber"
+                    name="idProofNumber" // Ensure this matches state and FormData key
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="Enter ID Proof Number (e.g., Aadhar, PAN)"
+                    value={idProofNumber}
+                    onChange={onChange}
+                  />
+                </div>
+
+                <div className="form-group mb-3">
+                  <label htmlFor="idProofType">ID Proof Type</label>
+                  <select
+                    id="idProofType"
+                    name="idProofType"
+                    required
+                    className="form-control form-select"
+                    value={idProofType}
+                    onChange={onChange}
+                  >
+                    <option value="aadhar">Aadhar Card</option>
+                    <option value="pan">PAN Card</option>
+                    <option value="voterid">Voter ID</option>
+                  </select>
+                </div>
+
+                {/* Profile Image Upload */}
+                <div className="form-group mb-3">
+                  <label htmlFor="profileImage">Profile Picture</label>
+                  <input
+                    id="profileImage"
+                    name="profileImage" // Name matches the key for FormData
+                    type="file"
+                    required
+                    className="form-control"
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={onChange}
+                  />
+                  {profileImageFile && <p className="mt-1"><small>Selected: {profileImageFile.name}</small></p>}
+                </div>
+
+                {/* ID Proof Image Upload */}
+                <div className="form-group mb-3">
+                  <label htmlFor="idProofImage">ID Proof Image</label>
+                  <input
+                    id="idProofImage"
+                    name="idProofImage" // Name matches the key for FormData
+                    type="file"
+                    required
+                    className="form-control"
+                    accept="image/png, image/jpeg, image/gif"
+                    onChange={onChange}
+                  />
+                  {idProofImageFile && <p className="mt-1"><small>Selected: {idProofImageFile.name}</small></p>}
+                </div>
+
+                <div className="form-group mb-3">
+                  <label htmlFor="station">Station</label>
+                  <input
+                    id="station"
+                    name="station"
+                    type="text"
+                    required
+                    className="form-control"
+                    placeholder="Assigned Station"
+                    value={station}
+                    onChange={onChange}
+                  />
+                </div>
+
+                <div className="form-group mb-3">
+                  <label>Available Platforms (select at least one)</label>
+                  <div className="mt-2">
+                    {platformCheckboxes.map(platform => (
+                      <div key={platform.id} className="form-check form-check-inline">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id={`platform-${platform.id}`}
+                          checked={platform.checked}
+                          onChange={() => handlePlatformChange(platform.id)}
+                        />
+                        <label className="form-check-label" htmlFor={`platform-${platform.id}`}>
+                          {platform.id}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary w-100"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <svg className="animate-spin h-5 w-5 mr-3 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path d="M12 2 L12 6 M12 18 L12 22 M4.93 4.93 L7.76 7.76 M16.24 16.24 L19.07 19.07 M2 12 L6 12 M18 12 L22 12 M4.93 19.07 L7.76 16.24 M16.24 7.76 L19.07 4.93" strokeDasharray="157" strokeDashoffset="0" />
+                      </svg>
+                    ) : (
+                      'Register'
+                    )}
+                  </button>
+                </div>
+              </form>
+              <p className="mt-4 text-center">
+                Already have an account?{' '}
+                <Link to="/login" className="text-primary">
+                  Login here
+                </Link>
+              </p>
             </div>
           </div>
-
-          {formError && (
-            <div className="text-red-600 text-sm text-center">
-              {formError}
-            </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
-                isLoading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading ? (
-                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </span>
-              ) : (
-                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                  <svg className="h-5 w-5 text-primary-500 group-hover:text-primary-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                  </svg>
-                </span>
-              )}
-              {isLoading ? 'Registering...' : 'Register as Coolie'}
-            </button>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-                Sign in
-              </Link>
-            </p>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 };
 
-export default RegisterCoolie; 
+export default RegisterCoolie;

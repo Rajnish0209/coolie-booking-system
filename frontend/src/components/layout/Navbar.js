@@ -17,87 +17,85 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white py-2 px-4 shadow-md">
-      <div className="container flex justify-between items-center">
-        <Link to="/" className="flex items-center">
-          <span style={{ color: 'var(--primary-700)', fontWeight: 600, fontSize: '1.25rem' }}>Coolie Booking System</span>
+    <nav className="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+      <div className="container">
+        <Link to="/" className="navbar-brand text-primary-700 font-weight-bold">
+          Coolie Booking System
         </Link>
-        <div className="flex items-center">
-          {isAuthenticated && user && (
-            <span className="mr-4" style={{ display: 'none', fontSize: '0.875rem', color: '#4b5563' }}>
-              Welcome, {user.name} ({user.role})
-            </span>
-          )}
-          <button
-            onClick={toggleMenu}
-            type="button"
-            className="py-2 px-2 rounded-md"
-            style={{ color: '#6b7280', display: 'inline-flex' }}
-          >
-            <span className="sr-only">Open main menu</span>
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"></path>
-            </svg>
-          </button>
-        </div>
-        <div
-          className={`${isMenuOpen ? 'block' : 'none'} flex-col`}
-          style={{ width: '100%' }}
-          id="mobile-menu"
+        <button
+          onClick={toggleMenu}
+          className="navbar-toggler"
+          type="button"
+          aria-controls="navbarNav"
+          aria-expanded={isMenuOpen}
+          aria-label="Toggle navigation"
         >
-          <ul className="flex flex-col" style={{ marginTop: '1rem' }}>
-            <li>
-              <Link to="/" className="block py-2" style={{ color: '#374151' }}>Home</Link>
+          <span className="navbar-toggler-icon"></span>
+        </button>
+        <div className={`collapse navbar-collapse ${isMenuOpen ? 'show' : ''}`} id="navbarNav">
+          <ul className="navbar-nav ms-auto align-items-center">
+            {isAuthenticated && user && (
+              <li className="nav-item d-none d-lg-block">
+                <span className="nav-link text-muted">
+                  Welcome, {user.name} ({user.role})
+                </span>
+              </li>
+            )}
+            <li className="nav-item">
+              <Link to="/" className="nav-link">Home</Link>
             </li>
             {isAuthenticated ? (
               <>
                 {user && user.role === 'passenger' && (
                   <>
-                    <li>
-                      <Link to="/book" className="block py-2" style={{ color: '#374151' }}>Book Coolie</Link>
+                    <li className="nav-item">
+                      <Link to="/book" className="nav-link">Book Coolie</Link>
                     </li>
-                    <li>
-                      <Link to="/bookings" className="block py-2" style={{ color: '#374151' }}>My Bookings</Link>
+                    <li className="nav-item">
+                      <Link to="/bookings" className="nav-link">My Bookings</Link>
                     </li>
-                    <li>
-                      <Link to="/user-profile" className="block py-2" style={{ color: '#374151' }}>My Profile</Link>
+                    <li className="nav-item">
+                      <Link to="/user-profile" className="nav-link">My Profile</Link>
                     </li>
                   </>
                 )}
                 {user && user.role === 'coolie' && (
                   <>
-                    <li>
-                      <Link to="/coolie-profile" className="block py-2" style={{ color: '#374151' }}>Profile</Link>
+                    <li className="nav-item">
+                      <Link to="/coolie-profile" className="nav-link">Profile</Link>
                     </li>
-                    <li>
-                      <Link to="/bookings" className="block py-2" style={{ color: '#374151' }}>My Bookings</Link>
+                    <li className="nav-item">
+                      <Link to="/bookings" className="nav-link">My Bookings</Link>
                     </li>
                   </>
                 )}
                 {user && user.role === 'admin' && (
                   <>
-                    <li>
-                      <Link to="/admin" className="block py-2" style={{ color: '#374151' }}>Admin Panel</Link>
+                    <li className="nav-item">
+                      <Link to="/admin" className="nav-link">Admin Panel</Link>
                     </li>
-                    <li>
-                      <Link to="/admin-profile" className="block py-2" style={{ color: '#374151' }}>My Profile</Link>
+                    <li className="nav-item">
+                      <Link to="/coolie-approvals" className="nav-link">Coolie Approvals</Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link to="/admin-profile" className="nav-link">My Profile</Link>
                     </li>
                   </>
                 )}
-                <li>
-                  <Link to="/dashboard" className="block py-2" style={{ color: '#374151' }}>Dashboard</Link>
+                <li className="nav-item">
+                  <Link to="/dashboard" className="nav-link">Dashboard</Link>
                 </li>
-                <li>
-                  <button onClick={handleLogout} className="block py-2" style={{ color: '#374151' }}>Logout</button>
+                <li className="nav-item">
+                  <button onClick={handleLogout} className="btn btn-link nav-link text-danger">Logout</button>
                 </li>
               </>
             ) : (
               <>
-                <li>
-                  <Link to="/login" className="block py-2" style={{ color: '#374151' }}>Login</Link>
+                <li className="nav-item">
+                  <Link to="/login" className="nav-link">Login</Link>
                 </li>
-                <li>
-                  <Link to="/register" className="block py-2" style={{ color: '#374151' }}>Register</Link>
+                <li className="nav-item">
+                  <Link to="/register" className="nav-link">Register</Link>
                 </li>
               </>
             )}
@@ -108,4 +106,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar; 
+export default Navbar;

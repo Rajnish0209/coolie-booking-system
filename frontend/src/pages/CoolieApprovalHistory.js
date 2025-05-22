@@ -1,284 +1,289 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 
 const CoolieApprovalHistory = () => {
-  const { user } = useContext(AuthContext);
+  const { user, token, logout } = useContext(AuthContext);
   const [coolies, setCoolies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    if (user.role !== 'admin') {
-      setError('Only admins can access this page');
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const baseUploadUrl = API_URL.replace('/api', '') + '/uploads/';
+
+  const getFullImageUrl = (imageUrl) => {
+    if (!imageUrl) return '';
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl; // Already a full URL
+    }
+    if (imageUrl.startsWith('uploads/')) {
+      return `${API_URL.replace('/api', '')}/${imageUrl}`; // Starts with uploads/, just prepend base server URL
+    }
+    return `${baseUploadUrl}${imageUrl}`; // Likely just a filename
+  };
+
+  const fetchCoolies = useCallback(async () => {
+    if (user?.role !== 'admin') {
+      setError('Only admins can access this page.');
       setLoading(false);
       return;
     }
-    fetchCoolies();
-  }, [user.role]);
+    if (!token) {
+      setError('Authentication token not found. Please log in.');
+      setLoading(false);
+      if (logout) logout(); // Logout if no token
+      return;
+    }
 
-  const fetchCoolies = async () => {
+    setLoading(true);
+    setError('');
+    setActionError('');
+    setActionSuccess('');
+
     try {
-      setLoading(true);
-      const response = await axios.get('http://localhost:5000/api/coolies/all', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+      // Corrected API endpoint to fetch all coolies
+      const response = await axios.get(`${API_URL}/coolies/`, { 
+        headers: { Authorization: `Bearer ${token}` },
       });
       
       if (response.data.success) {
-        setCoolies(response.data.data);
+        setCoolies(response.data.data || []);
+      } else {
+        setError(response.data.message || 'Failed to fetch coolies.');
       }
     } catch (err) {
-      setError('Failed to fetch coolies');
-      console.error(err);
+      console.error('Fetch Coolies Error:', err.response || err);
+      if (err.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+        if (logout) logout();
+      } else {
+        setError(err.response?.data?.message || 'An error occurred while fetching coolies.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.role, token, API_URL, logout]);
 
-  // Filter coolies by status and search term
-  const filteredCoolies = coolies.filter(coolie => {
-    // Filter by approval status
-    if (activeTab === 'approved' && !coolie.isApproved) return false;
-    if (activeTab === 'pending' && coolie.isApproved) return false;
-    if (activeTab === 'rejected' && coolie.isApproved !== false) return false;
-    
-    // Filter by search term if provided
-    if (!searchTerm) return true;
-    
-    const searchTermLower = searchTerm.toLowerCase();
-    return (
-      coolie.user?.name?.toLowerCase().includes(searchTermLower) ||
-      coolie.user?.email?.toLowerCase().includes(searchTermLower) ||
-      coolie.station?.toLowerCase().includes(searchTermLower) ||
-      coolie.idProofType?.toLowerCase().includes(searchTermLower) ||
-      coolie.idProof?.toLowerCase().includes(searchTermLower)
-    );
-  });
+  useEffect(() => {
+    fetchCoolies();
+  }, [fetchCoolies]);
 
-  const handleApprove = async (id, isApproved) => {
+  const handleApprovalAction = async (coolieId, newApprovalStatus) => {
+    setActionError('');
+    setActionSuccess('');
+    setLoading(true); // Indicate loading for the action
+
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/coolies/${id}/approve`,
-        { isApproved },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
+        `${API_URL}/coolies/${coolieId}/approve`,
+        { isApproved: newApprovalStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       
       if (response.data.success) {
-        // Update the local state
+        setActionSuccess(`Coolie status updated successfully to ${getStatusText(newApprovalStatus)}.`);
+        // Refresh the specific coolie or the whole list
         setCoolies(prevCoolies =>
-          prevCoolies.map(coolie =>
-            coolie._id === id ? { ...coolie, isApproved } : coolie
+          prevCoolies.map(c =>
+            c._id === coolieId ? { ...c, isApproved: newApprovalStatus, updatedAt: new Date().toISOString() } : c
           )
         );
+        setTimeout(() => setActionSuccess(''), 3000);
+      } else {
+        setActionError(response.data.message || 'Failed to update approval status.');
+        setTimeout(() => setActionError(''), 5000);
       }
     } catch (err) {
-      setError('Failed to update approval status');
-      console.error(err);
+      console.error('Approval Action Error:', err.response || err);
+      setActionError(err.response?.data?.message || 'An error occurred while updating approval status.');
+      setTimeout(() => setActionError(''), 5000);
+    } finally {
+      setLoading(false); // Clear loading for the action
     }
   };
 
+  const filteredCoolies = coolies.filter(coolie => {
+    if (activeTab !== 'all') {
+      if (activeTab === 'approved' && coolie.isApproved !== true) return false;
+      if (activeTab === 'pending' && coolie.isApproved !== null) return false;
+      if (activeTab === 'rejected' && coolie.isApproved !== false) return false;
+    }
+    
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      coolie.user?.name?.toLowerCase().includes(term) ||
+      coolie.user?.email?.toLowerCase().includes(term) ||
+      coolie.station?.toLowerCase().includes(term) ||
+      coolie.coolieIdNumber?.toLowerCase().includes(term) || // Search by Coolie ID
+      coolie.idProof?.toLowerCase().includes(term)
+    );
+  });
+
   const getStatusBadgeClass = (isApproved) => {
-    if (isApproved === true) return 'bg-green-100 text-green-800';
-    if (isApproved === false) return 'bg-red-100 text-red-800';
-    return 'bg-yellow-100 text-yellow-800';
+    if (isApproved === true) return 'badge bg-success';
+    if (isApproved === false) return 'badge bg-danger';
+    return 'badge bg-warning text-dark'; // For pending (isApproved === null)
   };
 
   const getStatusText = (isApproved) => {
     if (isApproved === true) return 'Approved';
     if (isApproved === false) return 'Rejected';
-    return 'Pending';
+    return 'Pending Approval';
   };
 
-  if (loading) {
+  if (loading && coolies.length === 0) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '16rem' }}>
-        <div style={{ width: '3rem', height: '3rem', border: '2px solid #e5e7eb', borderTop: '2px solid var(--primary-600)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+      <div className="container text-center py-5">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="mt-2">Loading Coolie Applications...</p>
       </div>
     );
   }
 
-  if (user.role !== 'admin') {
+  if (user?.role !== 'admin') {
     return (
-      <div style={{ maxWidth: '48rem', margin: '0 auto', padding: '2rem 1rem' }}>
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '0.75rem', borderRadius: '0.375rem' }}>
-          <p>You do not have permission to access this page.</p>
+      <div className="container py-4">
+        <div className="alert alert-danger text-center">
+          <p className="mb-0">You do not have permission to access this page.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '64rem', margin: '0 auto', padding: '2rem 1rem' }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }}>Coolie Approval History</h2>
+    <div className="container py-4">
+      <h1 className="text-center mb-4">Coolie Application Management</h1>
       
-      {error && (
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '0.75rem', borderRadius: '0.375rem', marginBottom: '1rem' }}>
-          {error}
+      {error && <div className="alert alert-danger">{error}</div>}
+      {actionError && <div className="alert alert-danger mt-2">{actionError}</div>}
+      {actionSuccess && <div className="alert alert-success mt-2">{actionSuccess}</div>}
+      
+      <div className="row mb-3">
+        <div className="col-md-6">
+          <input
+            type="text"
+            placeholder="Search by name, email, station, ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="form-control form-control-sm"
+          />
         </div>
-      )}
-      
-      <div style={{ marginBottom: '1.5rem' }}>
-        <input
-          type="text"
-          placeholder="Search coolies..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ width: '100%', maxWidth: '20rem', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-        />
       </div>
 
-      <div style={{ marginBottom: '1.5rem', display: 'flex', borderBottom: '1px solid #e5e7eb', overflow: 'auto' }}>
-        <button
-          onClick={() => setActiveTab('all')}
-          style={{ 
-            padding: '0.75rem 1rem', 
-            fontWeight: activeTab === 'all' ? '600' : '400',
-            color: activeTab === 'all' ? 'var(--primary-600)' : '#6b7280',
-            borderBottom: activeTab === 'all' ? '2px solid var(--primary-600)' : 'none',
-            marginBottom: '-1px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setActiveTab('pending')}
-          style={{ 
-            padding: '0.75rem 1rem', 
-            fontWeight: activeTab === 'pending' ? '600' : '400',
-            color: activeTab === 'pending' ? 'var(--primary-600)' : '#6b7280',
-            borderBottom: activeTab === 'pending' ? '2px solid var(--primary-600)' : 'none',
-            marginBottom: '-1px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          Pending
-        </button>
-        <button
-          onClick={() => setActiveTab('approved')}
-          style={{ 
-            padding: '0.75rem 1rem', 
-            fontWeight: activeTab === 'approved' ? '600' : '400',
-            color: activeTab === 'approved' ? 'var(--primary-600)' : '#6b7280',
-            borderBottom: activeTab === 'approved' ? '2px solid var(--primary-600)' : 'none',
-            marginBottom: '-1px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          Approved
-        </button>
-        <button
-          onClick={() => setActiveTab('rejected')}
-          style={{ 
-            padding: '0.75rem 1rem', 
-            fontWeight: activeTab === 'rejected' ? '600' : '400',
-            color: activeTab === 'rejected' ? 'var(--primary-600)' : '#6b7280',
-            borderBottom: activeTab === 'rejected' ? '2px solid var(--primary-600)' : 'none',
-            marginBottom: '-1px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          Rejected
-        </button>
-      </div>
+      <ul className="nav nav-tabs mb-3">
+        {['all', 'pending', 'approved', 'rejected'].map(tabStatus => (
+          <li className="nav-item" key={tabStatus}>
+            <button 
+              className={`nav-link ${activeTab === tabStatus ? 'active' : ''}`}
+              onClick={() => setActiveTab(tabStatus)}
+            >
+              {tabStatus.charAt(0).toUpperCase() + tabStatus.slice(1)}
+            </button>
+          </li>
+        ))}
+      </ul>
 
-      {filteredCoolies.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2.5rem 0' }}>
-          <p style={{ color: '#6b7280' }}>No coolies found</p>
-        </div>
+      {loading && <div className="text-center my-3"><div className="spinner-sm"></div><p>Updating...</p></div>}
+
+      {filteredCoolies.length === 0 && !loading ? (
+        <div className="alert alert-info text-center">No coolie applications found matching your criteria.</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="row row-cols-1 row-cols-md-2 g-4">
           {filteredCoolies.map(coolie => (
-            <div key={coolie._id} style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)', padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>{coolie.user?.name || 'Unknown'}</h3>
-                  <p style={{ color: '#6b7280' }}>{coolie.user?.email || 'No email'} | {coolie.user?.phone || 'No phone'}</p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <span style={{ 
-                    padding: '0.25rem 0.75rem', 
-                    borderRadius: '9999px', 
-                    fontSize: '0.75rem', 
-                    fontWeight: '600',
-                    ...getStatusBadgeClass(coolie.isApproved) === 'bg-green-100 text-green-800' ? 
-                      { backgroundColor: '#d1fae5', color: '#065f46' } :
-                      getStatusBadgeClass(coolie.isApproved) === 'bg-red-100 text-red-800' ?
-                      { backgroundColor: '#fee2e2', color: '#b91c1c' } :
-                      { backgroundColor: '#fef3c7', color: '#92400e' }
-                  }}>
+            <div key={coolie._id} className="col">
+              <div className="card h-100 shadow-sm">
+                <div className="card-header d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0">{coolie.user?.name || 'N/A'} <small className="text-muted">({coolie.coolieIdNumber || 'No ID'})</small></h5>
+                  <span className={`badge ${getStatusBadgeClass(coolie.isApproved)} p-2`}>
                     {getStatusText(coolie.isApproved)}
                   </span>
-                  
-                  <p style={{ marginLeft: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>
-                    {coolie.updatedAt ? `Updated: ${new Date(coolie.updatedAt).toLocaleDateString()}` : ''}
-                  </p>
+                </div>
+                <div className="card-body">
+                  <p className="card-text mb-1"><strong>Email:</strong> {coolie.user?.email || 'N/A'}</p>
+                  <p className="card-text mb-1"><strong>Phone:</strong> {coolie.user?.phone || 'N/A'}</p>
+                  <p className="card-text mb-1"><strong>Station:</strong> {coolie.station || 'N/A'}</p>
+                  <p className="card-text mb-1"><strong>Age:</strong> {coolie.age || 'N/A'} | <strong>Gender:</strong> {coolie.gender || 'N/A'}</p>
+                  <p className="card-text mb-1"><strong>ID Proof:</strong> {coolie.idProofType || 'N/A'} - {coolie.idProof || 'N/A'}</p>
+                  <p className="card-text mb-1"><strong>Platforms:</strong> {coolie.platformNumbers?.join(', ') || 'N/A'}</p>
+                  <p className="card-text mb-1"><strong>Available:</strong> {typeof coolie.isAvailable === 'boolean' ? (coolie.isAvailable ? 'Yes' : 'No') : 'N/A'}</p>
+                  <p className="card-text small text-muted mt-2">Last Updated: {new Date(coolie.updatedAt || coolie.createdAt).toLocaleDateString()}</p>
+                  <div className="mt-2 d-flex flex-wrap align-items-start">
+                    {coolie.user?.imageUrl && (
+                      <div className="me-3 mb-2 text-center">
+                        <p className="mb-1"><small>Profile Picture:</small></p>
+                        <img 
+                          src={getFullImageUrl(coolie.user.imageUrl)} 
+                          alt={`${coolie.user?.name || 'Coolie'}'s profile`} 
+                          style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }} 
+                          onError={(e) => { e.target.style.display='none'; /* Hide if broken */ const p = document.createElement('p'); p.textContent='[Image not found]'; e.target.parentElement.appendChild(p); }}
+                        />
+                      </div>
+                    )}
+                    {coolie.idProofUrl && (
+                      <div className="mb-2 text-center">
+                        <p className="mb-1"><small>ID Proof:</small></p>
+                        <img 
+                          src={getFullImageUrl(coolie.idProofUrl)} 
+                          alt="ID Proof" 
+                          style={{ width: '150px', height: '100px', objectFit: 'contain', borderRadius: '4px', border: '1px solid #ddd' }} 
+                          onError={(e) => { e.target.style.display='none'; /* Hide if broken */ const p = document.createElement('p'); p.textContent='[Image not found]'; e.target.parentElement.appendChild(p); }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {(!coolie.user?.imageUrl && !coolie.idProofUrl) && (
+                     <p className="text-muted small mt-2">No images provided.</p>
+                  )}
+                </div>
+                
+                <div className="card-footer bg-light">
+                  <div className="d-flex flex-wrap gap-2 justify-content-end">
+                    {coolie.isApproved === null && ( // Pending approval
+                      <>
+                        <button
+                          onClick={() => handleApprovalAction(coolie._id, true)}
+                          className="btn btn-success btn-sm"
+                          disabled={loading} // Disable button when an action is in progress
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleApprovalAction(coolie._id, false)}
+                          className="btn btn-danger btn-sm"
+                          disabled={loading}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {coolie.isApproved === true && ( // Currently Approved
+                      <button
+                        onClick={() => handleApprovalAction(coolie._id, false)}
+                        className="btn btn-warning btn-sm"
+                        disabled={loading}
+                      >
+                        Revoke Approval (Reject)
+                      </button>
+                    )}
+                    {coolie.isApproved === false && ( // Currently Rejected
+                       <button
+                        onClick={() => handleApprovalAction(coolie._id, true)}
+                        className="btn btn-info btn-sm"
+                        disabled={loading}
+                      >
+                        Re-approve
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              
-              <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <p><span style={{ fontWeight: '500' }}>Age:</span> {coolie.age} years</p>
-                  <p><span style={{ fontWeight: '500' }}>Gender:</span> {coolie.gender}</p>
-                  <p><span style={{ fontWeight: '500' }}>ID Type:</span> {coolie.idProofType}</p>
-                  <p><span style={{ fontWeight: '500' }}>ID Number:</span> {coolie.idProof}</p>
-                </div>
-                <div>
-                  <p><span style={{ fontWeight: '500' }}>Station:</span> {coolie.station}</p>
-                  <p>
-                    <span style={{ fontWeight: '500' }}>Platforms:</span>{' '}
-                    {coolie.platformNumbers ? coolie.platformNumbers.join(', ') : 'None'}
-                  </p>
-                  <p>
-                    <span style={{ fontWeight: '500' }}>Available:</span>{' '}
-                    {coolie.isAvailable ? 'Yes' : 'No'}
-                  </p>
-                </div>
-              </div>
-              
-              {coolie.isApproved === null && (
-                <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
-                  <button
-                    onClick={() => handleApprove(coolie._id, true)}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: '#10b981', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleApprove(coolie._id, false)}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-              
-              {coolie.isApproved !== null && (
-                <div style={{ marginTop: '1.5rem' }}>
-                  <button
-                    onClick={() => handleApprove(coolie._id, !coolie.isApproved)}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: coolie.isApproved ? '#ef4444' : '#10b981', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
-                  >
-                    {coolie.isApproved ? 'Change to Rejected' : 'Change to Approved'}
-                  </button>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -287,4 +292,4 @@ const CoolieApprovalHistory = () => {
   );
 };
 
-export default CoolieApprovalHistory; 
+export default CoolieApprovalHistory;

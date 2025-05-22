@@ -94,29 +94,40 @@ exports.createBooking = async (req, res) => {
 exports.getBookings = async (req, res) => {
   try {
     let query;
-    
+    const { status, coolieId } = req.query; // Destructure coolieId from query
+
     // If user is admin, get all bookings
     if (req.user.role === 'admin') {
       query = Booking.find();
     } 
     // If user is coolie, get their bookings
     else if (req.user.role === 'coolie') {
-      const coolie = await Coolie.findOne({ user: req.user.id });
+      const coolieProfile = await Coolie.findOne({ user: req.user.id }); // Renamed to coolieProfile for clarity
       
-      if (!coolie) {
+      if (!coolieProfile) {
         return res.status(404).json({
           success: false,
           message: 'No coolie profile found'
         });
       }
       
-      query = Booking.find({ coolie: coolie._id });
+      // If coolieId is provided in query (e.g., for CoolieProfile page), use it, otherwise use logged-in coolie's ID
+      const targetCoolieId = coolieId || coolieProfile._id;
+      query = Booking.find({ coolie: targetCoolieId });
     } 
     // If user is passenger, get their bookings
     else {
       query = Booking.find({ user: req.user.id });
     }
     
+    // Add status filtering if provided
+    if (status) {
+      const statusArray = status.split(',').map(s => s.trim());
+      if (statusArray.length > 0) {
+        query = query.where('status').in(statusArray);
+      }
+    }
+
     // Add pagination
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
@@ -237,17 +248,9 @@ exports.getBooking = async (req, res) => {
 // @access  Private
 exports.updateBookingStatus = async (req, res) => {
   try {
-    const { status } = req.body;
-    
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide a status'
-      });
-    }
-    
+    const { status, cancelledBy } = req.body;
     let booking = await Booking.findById(req.params.id);
-    
+
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -296,9 +299,25 @@ exports.updateBookingStatus = async (req, res) => {
     }
     
     // Update booking status
+    // Ensure required fields are not lost during update
+    const existingBooking = await Booking.findById(req.params.id);
+    if (!existingBooking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    booking.serviceDateTime = existingBooking.serviceDateTime; // Preserve existing serviceDateTime
+    // Preserve other required fields if necessary, e.g.:
+    // booking.user = existingBooking.user;
+    // booking.coolie = existingBooking.coolie;
+    // booking.station = existingBooking.station;
+    // booking.platformNumber = existingBooking.platformNumber;
+    // booking.trainNumber = existingBooking.trainNumber;
+    // booking.seatNumber = existingBooking.seatNumber;
+    // booking.luggageDetails = existingBooking.luggageDetails;
+
     booking.status = status;
-    await booking.save();
-    
+    await booking.save({ validateModifiedOnly: true }); // Add validateModifiedOnly to skip validation on unchanged paths
+
     // If booking is completed or cancelled, make coolie available again
     if (status === 'completed' || status === 'cancelled') {
       await Coolie.findByIdAndUpdate(booking.coolie, { isAvailable: true });
@@ -330,6 +349,32 @@ exports.updateBookingStatus = async (req, res) => {
       });
     }
     
+    // Logic for coolie completing a booking
+    if (status === 'completed' && req.user.role === 'coolie') {
+      // Ensure the coolie updating is the one assigned to the booking
+      const coolieProfile = await Coolie.findOne({ user: req.user.id });
+      if (!coolieProfile || booking.coolie.toString() !== coolieProfile._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to complete this booking'
+        });
+      }
+      booking.status = 'completed';
+      booking.completedAt = Date.now();
+      // Make coolie available again
+      await Coolie.findByIdAndUpdate(booking.coolie, { isAvailable: true });
+
+      // Create notification for passenger
+      await Notification.create({
+        recipient: booking.user,
+        sender: req.user.id, // Coolie's user ID
+        type: 'booking_completed',
+        title: 'Booking Completed',
+        message: `Your booking with Coolie ${coolieProfile.coolieIdNumber || coolieProfile._id.toString().slice(-6)} has been marked as completed.`,
+        relatedBooking: booking._id
+      });
+    }
+
     res.status(200).json({
       success: true,
       data: booking
@@ -403,15 +448,20 @@ exports.rateBooking = async (req, res) => {
       alreadyRated.comment = comment || alreadyRated.comment;
     } else {
       // Add new rating
-      coolie.ratings.push({
-        user: req.user.id,
-        rating,
-        comment
-      });
+      coolie.ratings.push({ user: req.user.id, rating, comment });
     }
     
-    await coolie.save();
+    // Recalculate average rating (the pre-save hook will do this)
+    await coolie.save(); // This was missing
     
+    // Update the booking document with the rating details (optional, but good for display)
+    booking.rating = {
+      rating: rating,
+      comment: comment,
+      user: req.user.id // Store which user gave this specific rating on the booking
+    };
+    await booking.save({ validateModifiedOnly: true });
+
     res.status(200).json({
       success: true,
       message: 'Rating added successfully'
@@ -425,4 +475,4 @@ exports.rateBooking = async (req, res) => {
   }
 };
 
-module.exports = exports; 
+module.exports = exports;

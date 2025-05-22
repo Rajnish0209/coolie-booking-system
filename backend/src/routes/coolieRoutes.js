@@ -5,7 +5,8 @@ const {
   updateCoolie,
   updateAvailability,
   approveCoolie,
-  getAvailableCoolies
+  getAvailableCoolies,
+  getCoolieProfile
 } = require('../controllers/coolieController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -24,8 +25,17 @@ router.route('/:id')
 // Protected routes
 router.use(protect);
 
-// Coolie routes
-router.put('/:id/availability', authorize('coolie'), updateAvailability);
+// Add route for coolie to get their own profile
+router.get('/profile/me', authorize('coolie'), getCoolieProfile);
+
+// Add route for coolie to update their own profile
+router.put('/profile/me', authorize('coolie'), updateCoolie);
+
+// Add route for coolie to update their own availability
+router.put('/profile/availability', authorize('coolie'), updateAvailability);
+
+// Coolie routes (old one, can be removed or kept for admin use if needed, but /profile/availability is preferred for coolies)
+router.put('/:id/availability', authorize('coolie', 'admin'), updateAvailability); // Allow admin to also use this if needed
 
 // Admin routes
 router.put('/:id/approve', authorize('admin'), approveCoolie);
@@ -34,4 +44,4 @@ router.put('/:id/approve', authorize('admin'), approveCoolie);
 router.route('/:id')
   .put(updateCoolie);
 
-module.exports = router; 
+module.exports = router;

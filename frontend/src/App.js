@@ -29,9 +29,9 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div className="d-flex flex-column min-vh-100"> 
           <Navbar />
-          <main style={{ flexGrow: 1 }}>
+          <main className="flex-grow-1">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />

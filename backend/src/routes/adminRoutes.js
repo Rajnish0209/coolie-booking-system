@@ -2,7 +2,9 @@ const express = require('express');
 const {
   getDashboardStats,
   getPendingCoolies,
-  getBookingStats
+  getBookingStats,
+  getAllUsers,
+  getAllBookings
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -15,5 +17,7 @@ router.use(protect, authorize('admin'));
 router.get('/stats', getDashboardStats);
 router.get('/pending-coolies', getPendingCoolies);
 router.get('/booking-stats', getBookingStats);
+router.get('/users', getAllUsers);
+router.get('/bookings', getAllBookings);
 
-module.exports = router; 
+module.exports = router;

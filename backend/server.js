@@ -26,7 +26,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
-app.use(errorHandler); // Add error handler middleware
+
+// Serve static files from the 'uploads' directory
+app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -41,6 +43,9 @@ app.get('/', (req, res) => {
   res.send('Coolie Booking System API is running');
 });
 
+// Add error handler middleware AFTER all routes
+app.use(errorHandler);
+
 // Connect to MongoDB
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/coolie-booking-system';
 mongoose
@@ -52,4 +57,4 @@ mongoose
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});

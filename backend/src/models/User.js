@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema({
     enum: ['passenger', 'coolie', 'admin'],
     default: 'passenger'
   },
+  imageUrl: {
+    type: String,
+    required: false
+  },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   createdAt: {
@@ -65,4 +69,4 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema); 
+module.exports = mongoose.model('User', userSchema);

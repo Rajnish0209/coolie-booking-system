@@ -12,7 +12,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['booking', 'approval', 'cancellation', 'payment', 'system'],
+    enum: ['booking', 'approval', 'cancellation', 'payment', 'system', 'booking_completed'],
     required: true
   },
   title: {
@@ -37,4 +37,4 @@ const notificationSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('Notification', notificationSchema); 
+module.exports = mongoose.model('Notification', notificationSchema);

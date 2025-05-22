@@ -10,33 +10,39 @@ const Login = () => {
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login, isAuthenticated, error, clearError } = useContext(AuthContext);
+  const { login, isAuthenticated, user, error, clearError } = useContext(AuthContext); // Added user
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If already authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    if (isAuthenticated && user) { // Check for user object as well
+      // Redirect based on role after login
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else if (user.role === 'coolie') {
+        navigate('/coolie-profile');
+      } else { // passenger or other default roles
+        navigate('/dashboard');
+      }
     }
 
-    // If there's an error, set it to formError
     if (error) {
       setFormError(error);
-      clearError();
+      clearError(); // Make sure to clear the error from context after displaying
       setIsLoading(false);
     }
-  }, [isAuthenticated, error, navigate, clearError]);
+  }, [isAuthenticated, user, error, navigate, clearError]); // Added user to dependency array
 
   const { email, password } = formData;
 
   const onChange = e => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setFormError('');
+    setFormError(''); // Clear form error on change
   };
 
   const onSubmit = async e => {
     e.preventDefault();
     setIsLoading(true);
+    setFormError(''); // Clear previous errors
     
     if (!email || !password) {
       setFormError('Please enter both email and password');
@@ -45,31 +51,35 @@ const Login = () => {
     }
 
     try {
-      await login(email, password);
-      // If successful, the useEffect will handle redirection
+      await login({ email, password }); // Changed to pass an object
+      // If successful, the useEffect will handle redirection.
+      // setIsLoading(false) will be handled by error effect or successful navigation
     } catch (err) {
+      // Error is handled in useEffect via context, or if login itself throws and sets context error.
+      // If login does not set context error on its own for some reason, set it here.
+      // However, the current AuthContext seems to set error, so this might be redundant.
+      // setFormError(err.message || 'Login failed'); 
       setIsLoading(false);
-      // Error is handled in useEffect via context
     }
   };
 
   return (
-    <div className="min-h-screen flex" style={{ alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb', padding: '3rem 1rem' }}>
-      <div style={{ maxWidth: '28rem', width: '100%' }}>
-        <div>
-          <h2 style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '1.875rem', fontWeight: '800', color: '#1f2937' }}>
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: '#f9fafb' }}>
+      <div className="card" style={{ maxWidth: '28rem', width: '100%' }}>
+        <div className="card-header">
+          <h2 className="text-center h3 mb-0">
             Sign in to your account
           </h2>
-          <p style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#6b7280' }}>
+          <p className="text-center mt-2" style={{ fontSize: '0.875rem', color: '#6b7280' }}>
             Or{' '}
             <Link to="/register" style={{ fontWeight: '500', color: 'var(--primary-600)' }}>
               create a new account
             </Link>
           </p>
         </div>
-        <form style={{ marginTop: '2rem' }} onSubmit={onSubmit}>
-          <div style={{ borderRadius: '0.375rem', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)' }}>
-            <div>
+        <div className="card-body">
+          <form onSubmit={onSubmit}>
+            <div className="form-group">
               <label htmlFor="email" className="sr-only">
                 Email address
               </label>
@@ -79,21 +89,13 @@ const Login = () => {
                 type="email"
                 autoComplete="email"
                 required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.75rem 1rem', 
-                  border: '1px solid #d1d5db', 
-                  borderTopLeftRadius: '0.375rem', 
-                  borderTopRightRadius: '0.375rem',
-                  color: '#1f2937',
-                  fontSize: '0.875rem'
-                }}
+                className="form-control"
                 placeholder="Email address"
                 value={email}
                 onChange={onChange}
               />
             </div>
-            <div>
+            <div className="form-group">
               <label htmlFor="password" className="sr-only">
                 Password
               </label>
@@ -103,64 +105,47 @@ const Login = () => {
                 type="password"
                 autoComplete="current-password"
                 required
-                style={{ 
-                  width: '100%', 
-                  padding: '0.75rem 1rem', 
-                  border: '1px solid #d1d5db',
-                  borderTop: 'none', 
-                  borderBottomLeftRadius: '0.375rem', 
-                  borderBottomRightRadius: '0.375rem',
-                  color: '#1f2937',
-                  fontSize: '0.875rem'
-                }}
+                className="form-control"
                 placeholder="Password"
                 value={password}
                 onChange={onChange}
               />
             </div>
-          </div>
 
-          {formError && (
-            <div style={{ color: '#dc2626', fontSize: '0.875rem', textAlign: 'center', marginTop: '0.75rem' }}>
-              {formError}
+            {formError && (
+              <div className="alert alert-danger mt-3 py-2 px-3"> {/* Adjusted padding for alert */}\
+                {formError}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="btn btn-primary btn-block"
+                style={{ 
+                  opacity: isLoading ? 0.7 : 1,
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  position: 'relative' // For spinner
+                }}
+              >
+                {isLoading && (
+                  <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                    {/* Using the spinner keyframes from index.css via className */}
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </span>
+                )}
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </button>
             </div>
-          )}
-
-          <div style={{ marginTop: '1.5rem' }}>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="btn btn-primary"
-              style={{ 
-                width: '100%', 
-                display: 'flex', 
-                justifyContent: 'center',
-                position: 'relative',
-                opacity: isLoading ? '0.7' : '1',
-                cursor: isLoading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {isLoading ? (
-                <span style={{ position: 'absolute', left: '0', top: '0', bottom: '0', display: 'flex', alignItems: 'center', paddingLeft: '0.75rem' }}>
-                  <svg style={{ height: '1.25rem', width: '1.25rem', color: 'white', animation: 'spin 1s linear infinite' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle style={{ opacity: '0.25' }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path style={{ opacity: '0.75' }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </span>
-              ) : (
-                <span style={{ position: 'absolute', left: '0', top: '0', bottom: '0', display: 'flex', alignItems: 'center', paddingLeft: '0.75rem' }}>
-                  <svg style={{ height: '1.25rem', width: '1.25rem', color: '#A7F3D0' }} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                  </svg>
-                </span>
-              )}
-              {isLoading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
 
-export default Login; 
+export default Login;

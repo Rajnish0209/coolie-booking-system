@@ -2,25 +2,29 @@ import { Link } from 'react-router-dom';
 
 const Footer = () => {
   return (
-    <footer style={{ backgroundColor: '#1f2937', color: 'white', padding: '1.5rem 0', marginTop: 'auto' }}>
+    <footer className="footer bg-dark text-light py-4 mt-auto">
       <div className="container">
-        <div className="flex" style={{ flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Coolie Booking System</h2>
-            <p style={{ fontSize: '0.875rem', color: '#d1d5db', marginTop: '0.25rem' }}>Making railway journeys easier</p>
+        <div className="row justify-content-center">
+          <div className="col-md-6 text-center mb-3 mb-md-0">
+            <h5 className="text-uppercase mb-3">Coolie Booking System</h5>
+            <p className="text-muted">Making railway journeys easier, one booking at a time.</p>
           </div>
-          <div className="flex" style={{ flexDirection: 'column', gap: '0.5rem' }}>
-            <Link to="/" style={{ color: '#d1d5db' }}>Home</Link>
-            <Link to="/login" style={{ color: '#d1d5db' }}>Login</Link>
-            <Link to="/register" style={{ color: '#d1d5db' }}>Register</Link>
+          <div className="col-md-3 text-center text-md-start">
+            <h5 className="text-uppercase mb-3">Quick Links</h5>
+            <ul className="list-unstyled">
+              <li><Link to="/" className="footer-link">Home</Link></li>
+              <li><Link to="/login" className="footer-link">Login</Link></li>
+              <li><Link to="/register" className="footer-link">Register</Link></li>
+              {/* Add more links as needed */}
+            </ul>
           </div>
         </div>
-        <div style={{ marginTop: '1.5rem', borderTop: '1px solid #374151', paddingTop: '1rem', textAlign: 'center', fontSize: '0.875rem', color: '#9ca3af' }}>
-          <p>&copy; {new Date().getFullYear()} Coolie Booking System. All rights reserved.</p>
+        <div className="text-center pt-3 mt-3 border-top border-secondary">
+          <p className="text-muted">&copy; {new Date().getFullYear()} Coolie Booking System. All rights reserved.</p>
         </div>
       </div>
     </footer>
   );
 };
 
-export default Footer; 
+export default Footer;

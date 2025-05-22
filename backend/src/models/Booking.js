@@ -30,9 +30,9 @@ const bookingSchema = new mongoose.Schema({
     required: [true, 'Please specify your seat number'],
     trim: true
   },
-  arrivalTime: {
+  serviceDateTime: { // Changed from arrivalTime
     type: Date,
-    required: [true, 'Please specify the arrival time']
+    required: [true, 'Please specify the service date and time'] // Updated message
   },
   luggageDetails: {
     count: {
@@ -51,12 +51,17 @@ const bookingSchema = new mongoose.Schema({
     }
   },
   fare: {
-    type: Number,
-    required: true
+    type: Number
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
+    enum: [
+      'pending', // Passenger has booked, awaiting coolie confirmation
+      'confirmed', // Coolie has accepted the booking
+      'rejected', // Coolie has rejected the booking
+      'cancelled', // Passenger or Admin has cancelled the booking
+      'completed' // Coolie has marked the booking as completed
+    ],
     default: 'pending'
   },
   paymentStatus: {
@@ -95,4 +100,4 @@ bookingSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Booking', bookingSchema); 
+module.exports = mongoose.model('Booking', bookingSchema);

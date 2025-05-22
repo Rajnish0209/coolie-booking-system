@@ -3,22 +3,24 @@ import { Link } from 'react-router-dom';
 
 const NotFound = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full text-center">
-        <h2 className="text-6xl font-extrabold text-primary-600 mb-6">404</h2>
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">Page Not Found</h1>
-        <p className="text-gray-600 mb-8">
-          The page you're looking for doesn't exist or has been moved.
+    <div className="container d-flex flex-column align-items-center justify-content-center text-center min-vh-100 py-5">
+      <div className="not-found-content p-4 p-md-5 bg-light shadow-sm rounded">
+        <h1 className="display-1 fw-bold text-primary mb-3">404</h1>
+        <h2 className="h3 fw-bold mb-3">Oops! Page Not Found</h2>
+        <p className="text-muted mb-4">
+          We're sorry, but the page you are looking for cannot be found.
+          It might have been removed, had its name changed, or is temporarily unavailable.
         </p>
         <Link
           to="/"
-          className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+          className="btn btn-primary btn-lg px-4"
         >
-          Go back home
+          <i className="fas fa-home me-2"></i>
+          Go Back to Homepage
         </Link>
       </div>
     </div>
   );
 };
 
-export default NotFound; 
+export default NotFound;

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 const AdminProfile = () => {
-  const { user, token } = useContext(AuthContext);
+  const { user, token, logout } = useContext(AuthContext);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,58 +15,61 @@ const AdminProfile = () => {
     phone: ''
   });
   const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      // Get userId using either id or _id field
-      const userId = user?.id || user?._id;
-      
-      if (!userId) {
-        console.error('No user ID available', user);
-        setError('User information is missing. Please try logging out and logging back in.');
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        setLoading(true);
-        console.log('Fetching admin profile with ID:', userId);
-        
-        const response = await axios.get(`http://localhost:5000/api/users/${userId}`, {
-          headers: {
-            Authorization: `Bearer ${token || localStorage.getItem('token')}`
-          }
-        });
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-        console.log('Admin profile response:', response.data);
+  const fetchProfile = useCallback(async () => {
+    const userId = user?.id || user?._id;
+    
+    if (!token || !userId || user?.role !== 'admin') {
+      setError('Access Denied. You must be an authenticated admin to view this page.');
+      setLoading(false);
+      if (!token || !user) logout();
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+    try {
+      const response = await axios.get(`${API_URL}/users/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
-        if (response.data.success) {
-          const userData = response.data.data;
-          if (userData.role !== 'admin') {
-            setError('You do not have admin privileges to access this page');
-            setLoading(false);
-            return;
-          }
-          
+      if (response.data.success) {
+        const userData = response.data.data;
+        if (userData.role !== 'admin') {
+          setError('You do not have admin privileges to access this page.');
+          setProfile(null);
+        } else {
           setProfile(userData);
           setFormData({
             name: userData.name || '',
             email: userData.email || '',
             phone: userData.phone || ''
           });
-        } else {
-          setError('Failed to load profile data');
         }
-      } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError(`Failed to fetch profile: ${err.response?.data?.message || err.message}`);
-      } finally {
-        setLoading(false);
+      } else {
+        setError(response.data.message || 'Failed to load profile data.');
       }
-    };
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Session expired or unauthorized. Please log in again.');
+        logout();
+      } else {
+        setError(`Failed to fetch profile: ${err.response?.data?.message || err.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, token, API_URL, logout]);
 
+  useEffect(() => {
     fetchProfile();
-  }, [user, token]);
+  }, [fetchProfile]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -77,207 +81,185 @@ const AdminProfile = () => {
     const userId = user?.id || user?._id;
     
     if (!userId) {
-      setError('Cannot update profile: User ID is missing');
+      setError('Cannot update profile: User ID is missing. Please refresh.');
       return;
     }
     
+    setIsSubmitting(true);
+    setError('');
+    setSuccessMessage('');
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/users/${userId}`,
+        `${API_URL}/users/${userId}`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${token || localStorage.getItem('token')}`
+            Authorization: `Bearer ${token}`
           }
         }
       );
 
       if (response.data.success) {
-        setProfile({ ...profile, ...formData });
+        setProfile(prevProfile => ({ ...prevProfile, ...response.data.data }));
+        setFormData(prevData => ({...prevData, ...response.data.data}));
         setIsEditing(false);
-        setSuccessMessage('Profile updated successfully');
+        setSuccessMessage('Profile updated successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError(response.data.message || 'Failed to update profile.');
       }
     } catch (err) {
       setError(`Failed to update profile: ${err.response?.data?.message || err.message}`);
       console.error('Error updating profile:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  // Display debug info in development mode
-  const renderDebugInfo = () => {
-    if (process.env.NODE_ENV === 'development') {
-      return (
-        <div style={{ padding: '0.75rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem', marginBottom: '1rem', fontSize: '0.75rem' }}>
-          <p><strong>Debug Info:</strong></p>
-          <p>User: {user ? JSON.stringify({id: user.id || user._id, role: user.role}) : 'Not set'}</p>
-          <p>Token present: {token || localStorage.getItem('token') ? 'Yes' : 'No'}</p>
-          <p>Profile loaded: {profile ? 'Yes' : 'No'}</p>
-        </div>
-      );
-    }
-    return null;
   };
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '48rem', margin: '0 auto', padding: '2rem 1rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }}>Admin Profile</h2>
-        {renderDebugInfo()}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '16rem' }}>
-          <div style={{ width: '3rem', height: '3rem', border: '2px solid #e5e7eb', borderTop: '2px solid var(--primary-600)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+      <div className="container text-center py-5">
+        <div className="spinner"></div>
+        <p className="mt-2">Loading admin profile...</p>
+      </div>
+    );
+  }
+
+  if (error && (!profile || error.includes('Access Denied') || error.includes('Session expired'))) {
+    return (
+      <div className="container py-5">
+        <div className="alert alert-danger text-center">
+          <p>{error}</p>
+          <Link to="/login" className="btn btn-primary mt-2">Login</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="container py-5">
+        <div className="alert alert-warning text-center">
+          Admin profile data could not be loaded. Please try again or contact support.
+          <button onClick={fetchProfile} className="btn btn-primary mt-2 ml-2">Retry</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '48rem', margin: '0 auto', padding: '2rem 1rem' }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem' }}>Admin Profile</h2>
+    <div className="container py-4">
+      <h1 className="text-center mb-4">Admin Profile</h1>
       
-      {renderDebugInfo()}
-      
-      {error && (
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '0.75rem', borderRadius: '0.375rem', marginBottom: '1rem' }}>
-          {error}
-          {!user?.id && !user?._id && <p style={{ marginTop: '0.5rem' }}><strong>User ID is missing.</strong> Please refresh the page or try logging in again.</p>}
-        </div>
-      )}
-      
-      {successMessage && (
-        <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '0.75rem', borderRadius: '0.375rem', marginBottom: '1rem' }}>
-          {successMessage}
-        </div>
-      )}
+      {error && !isEditing && <div className="alert alert-danger">{error}</div>}
+      {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
-      {!profile && !loading && !error && (
-        <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '1rem', borderRadius: '0.375rem', marginBottom: '1rem' }}>
-          No profile data found. Please try refreshing the page or contact support.
-          <button 
-            onClick={() => window.location.reload()}
-            style={{ 
-              display: 'block',
-              marginTop: '1rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: '#b91c1c',
-              color: 'white',
-              borderRadius: '0.375rem',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            Refresh Page
-          </button>
+      <div className="card">
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <h4 className="mb-0">Admin Information</h4>
+          {!isEditing && (
+            <button
+              onClick={() => {
+                setIsEditing(true);
+                setError(''); 
+                setSuccessMessage('');
+                setFormData({
+                  name: profile.name || '',
+                  email: profile.email || '',
+                  phone: profile.phone || ''
+                });
+              }}
+              className="btn btn-primary btn-sm"
+            >
+              Edit Profile
+            </button>
+          )}
         </div>
-      )}
 
-      {profile && (
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)', overflow: 'hidden' }}>
-          <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: '600' }}>Admin Information</h3>
-              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Update your admin profile details</p>
-            </div>
-            {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--primary-600)', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
-              >
-                Edit
-              </button>
-            )}
-          </div>
-
+        <div className="card-body">
           {!isEditing ? (
-            <div style={{ padding: '1.5rem' }}>
-              <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Name</h4>
+            <div>
+              <div className="mb-3">
+                <strong>Name:</strong>
                 <p>{profile.name}</p>
               </div>
-              <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Email</h4>
+              <div className="mb-3">
+                <strong>Email:</strong>
                 <p>{profile.email}</p>
               </div>
-              <div>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>Phone</h4>
+              <div className="mb-3">
+                <strong>Phone:</strong>
                 <p>{profile.phone || 'Not provided'}</p>
               </div>
-              <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f9fafb', borderRadius: '0.375rem' }}>
-                <p style={{ fontSize: '0.875rem', color: '#4b5563', fontWeight: '500' }}>
-                  Role: <span style={{ color: 'var(--primary-600)', fontWeight: '600' }}>Administrator</span>
-                </p>
+              <div className="mt-3 p-2 bg-light rounded">
+                <p className="mb-0"><strong>Role:</strong> <span className="badge bg-primary">Administrator</span></p>
               </div>
             </div>
           ) : (
-            <div style={{ padding: '1.5rem' }}>
-              <form onSubmit={handleSubmit}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                    required
-                  />
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                    required
-                  />
-                </div>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', marginBottom: '0.25rem' }}>
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button
-                    type="submit"
-                    style={{ padding: '0.5rem 1rem', backgroundColor: 'var(--primary-600)', color: 'white', borderRadius: '0.375rem', border: 'none', cursor: 'pointer' }}
-                  >
-                    Save Changes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      setFormData({
-                        name: profile.name,
-                        email: profile.email,
-                        phone: profile.phone || ''
-                      });
-                    }}
-                    style={{ padding: '0.5rem 1rem', backgroundColor: 'white', border: '1px solid #d1d5db', color: '#6b7280', borderRadius: '0.375rem', cursor: 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
+            <form onSubmit={handleSubmit}>
+              {error && <div className="alert alert-danger">{error}</div>}
+              <div className="form-group mb-3">
+                <label htmlFor="name" className="form-label">Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <div className="form-group mb-3">
+                <label htmlFor="email" className="form-label">Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <div className="form-group mb-3">
+                <label htmlFor="phone" className="form-label">Phone</label>
+                <input
+                  type="tel"
+                  className="form-control"
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary mr-2" disabled={isSubmitting}>
+                {isSubmitting ? <span className="spinner-sm"></span> : 'Save Changes'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setIsEditing(false);
+                  setError(''); 
+                  setFormData({
+                    name: profile.name || '',
+                    email: profile.email || '',
+                    phone: profile.phone || ''
+                  });
+                }} 
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+            </form>
           )}
         </div>
-      )}
+      </div>
+      <div className="text-center mt-4">
+        <Link to="/admin" className="btn btn-outline-secondary">Back to Admin Panel</Link>
+      </div>
     </div>
   );
 };
 
-export default AdminProfile; 
+export default AdminProfile;

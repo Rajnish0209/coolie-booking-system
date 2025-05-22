@@ -8,8 +8,10 @@ const PrivateRoute = ({ component: Component, roles, ...rest }) => {
   // Check if the route is loading or not authenticated
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      <div className="flex justify-center items-center min-h-screen"> {/* Ensure full height for centering */}
+        <div className="spinner-border text-primary-600" role="status" style={{ width: '3rem', height: '3rem' }}>
+          <span className="visually-hidden">Loading...</span>
+        </div>
       </div>
     );
   }
@@ -26,4 +28,4 @@ const PrivateRoute = ({ component: Component, roles, ...rest }) => {
   return <Component {...rest} />;
 };
 
-export default PrivateRoute; 
+export default PrivateRoute;

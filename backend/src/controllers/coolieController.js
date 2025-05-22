@@ -137,8 +137,29 @@ exports.getCoolie = async (req, res) => {
 // @access  Private
 exports.updateCoolie = async (req, res) => {
   try {
-    let coolie = await Coolie.findById(req.params.id);
-    
+    let coolieId;
+    // If the route is /profile/me, the coolie to update is the logged-in user.
+    // Otherwise, it's specified by req.params.id (for admin or direct ID access).
+    if (req.path === '/profile/me') { // Corrected path check
+      if (req.user.role !== 'coolie') {
+        return res.status(403).json({
+          success: false,
+          message: 'Only coolies can update their own profile through this route.'
+        });
+      }
+      const coolieProfile = await Coolie.findOne({ user: req.user.id });
+      if (!coolieProfile) {
+        return res.status(404).json({ success: false, message: 'Coolie profile not found for this user.' });
+      }
+      coolieId = coolieProfile._id;
+    } else if (req.params.id) {
+      coolieId = req.params.id;
+    } else {
+      return res.status(400).json({ success: false, message: 'Coolie ID not determinable from route.'});
+    }
+
+    let coolie = await Coolie.findById(coolieId);
+
     if (!coolie) {
       return res.status(404).json({
         success: false,
@@ -147,7 +168,9 @@ exports.updateCoolie = async (req, res) => {
     }
     
     // Make sure user is coolie owner or admin
-    if (coolie.user.toString() !== req.user.id && req.user.role !== 'admin') {
+    // For /profile/me, ownership is already established by user role and finding coolie by user ID.
+    // For /:id, we need to check ownership or admin role.
+    if (req.params.id && coolie.user.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this coolie profile'
@@ -158,8 +181,16 @@ exports.updateCoolie = async (req, res) => {
     if (req.body.isApproved !== undefined && req.user.role !== 'admin') {
       delete req.body.isApproved;
     }
-    
-    coolie = await Coolie.findByIdAndUpdate(req.params.id, req.body, {
+
+    // Prevent coolies from updating their own coolieIdNumber or averageRating/totalRatings directly
+    if (req.user.role === 'coolie') {
+      delete req.body.coolieIdNumber;
+      delete req.body.averageRating;
+      delete req.body.totalRatings;
+      delete req.body.user; // Prevent changing the associated user account
+    }
+
+    coolie = await Coolie.findByIdAndUpdate(coolieId, req.body, {
       new: true,
       runValidators: true
     });
@@ -178,41 +209,99 @@ exports.updateCoolie = async (req, res) => {
 };
 
 // @desc    Update coolie availability
-// @route   PUT /api/coolies/:id/availability
-// @access  Private/Coolie
+// @route   PUT /api/coolies/profile/availability  (for coolie updating their own)
+// @route   PUT /api/coolies/:id/availability (for admin or coolie if they have their coolie ID)
+// @access  Private/Coolie or Private/Admin
 exports.updateAvailability = async (req, res) => {
   try {
-    const { isAvailable, currentLocation } = req.body;
-    
-    let coolie = await Coolie.findOne({ user: req.user.id });
-    
-    if (!coolie) {
+    const { isAvailable } = req.body; // Only expect isAvailable for this specific route
+    let coolieToUpdate;
+
+    // If accessing via /profile/availability, coolie is identified by req.user.id
+    // If accessing via /:id/availability, coolie is identified by req.params.id
+    if (req.path.includes('/profile/availability')) {
+      if (req.user.role !== 'coolie') {
+        return res.status(403).json({
+            success: false,
+            message: 'Only coolies can update their own availability through this route.'
+        });
+      }
+      coolieToUpdate = await Coolie.findOne({ user: req.user.id });
+    } else if (req.params.id) {
+      coolieToUpdate = await Coolie.findById(req.params.id);
+      // Optional: Add check if admin or if coolie matches req.user.id
+      if (!coolieToUpdate) {
+        return res.status(404).json({ success: false, message: 'Coolie not found' });
+      }
+      if (req.user.role !== 'admin' && coolieToUpdate.user.toString() !== req.user.id) {
+        return res.status(403).json({
+            success: false,
+            message: 'Not authorized to update this coolie availability'
+        });
+      }
+    } else {
+        return res.status(400).json({ success: false, message: 'Invalid request for updating availability' });
+    }
+
+    if (!coolieToUpdate) {
       return res.status(404).json({
         success: false,
         message: 'Coolie profile not found'
       });
     }
-    
+
     // Update fields
     if (isAvailable !== undefined) {
-      coolie.isAvailable = isAvailable;
+      coolieToUpdate.isAvailable = isAvailable;
     }
     
-    if (currentLocation) {
-      coolie.currentLocation = currentLocation;
+    // Removed currentLocation update from here, should be part of general profile update
+    // if (currentLocation) { 
+    //   coolieToUpdate.currentLocation = currentLocation;
+    // }
+    
+    await coolieToUpdate.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Availability updated successfully',
+      data: { isAvailable: coolieToUpdate.isAvailable } // Return only the updated field
+    });
+  } catch (error) {
+    console.error('Error in updateAvailability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating availability'
+    });
+  }
+};
+
+// @desc    Get coolie profile for the logged-in coolie
+// @route   GET /api/coolies/profile/me
+// @access  Private (Coolie)
+exports.getCoolieProfile = async (req, res) => {
+  try {
+    const coolie = await Coolie.findOne({ user: req.user.id }).populate({
+      path: 'user',
+      select: 'name email phone role'
+    });
+
+    if (!coolie) {
+      return res.status(404).json({
+        success: false,
+        message: 'Coolie profile not found for this user'
+      });
     }
-    
-    await coolie.save();
-    
+
     res.status(200).json({
       success: true,
       data: coolie
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in getCoolieProfile:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while fetching coolie profile'
     });
   }
 };
@@ -222,7 +311,7 @@ exports.updateAvailability = async (req, res) => {
 // @access  Private/Admin
 exports.approveCoolie = async (req, res) => {
   try {
-    const { isApproved } = req.body;
+    const { isApproved, rejectionReason } = req.body; // Added rejectionReason
     
     if (isApproved === undefined) {
       return res.status(400).json({
@@ -231,7 +320,7 @@ exports.approveCoolie = async (req, res) => {
       });
     }
     
-    const coolie = await Coolie.findById(req.params.id);
+    const coolie = await Coolie.findById(req.params.id).populate('user'); // Populate user to get user details
     
     if (!coolie) {
       return res.status(404).json({
@@ -240,18 +329,40 @@ exports.approveCoolie = async (req, res) => {
       });
     }
     
-    coolie.isApproved = isApproved;
-    await coolie.save();
-    
     // Create notification for the coolie
+    let notificationMessage = isApproved 
+        ? 'Your coolie account has been approved. You can now receive bookings.'
+        : `Your coolie account has been rejected. Reason: ${rejectionReason || 'Not specified'}. Please update your details and re-register if necessary.`;
+
     await Notification.create({
-      recipient: coolie.user,
+      recipient: coolie.user._id, // Use coolie.user._id after populating
       type: 'approval',
       title: isApproved ? 'Account Approved' : 'Account Rejected',
-      message: isApproved 
-        ? 'Your coolie account has been approved. You can now receive bookings.'
-        : 'Your coolie account has been rejected. Please contact admin for more information.'
+      message: notificationMessage
     });
+
+    // If rejected, delete the Coolie and associated User record
+    if (isApproved === false) {
+      const userId = coolie.user._id; // Get the user ID
+      
+      // It's generally better to mark as rejected and inactive rather than full delete
+      // to maintain historical data or allow for review. But if full deletion is required:
+      await Coolie.findByIdAndDelete(req.params.id);
+      await User.findByIdAndDelete(userId);
+      // Optionally, delete associated profile images and ID proofs from storage if implemented
+      // For example: if (coolie.idProofUrl) { deleteFile(coolie.idProofUrl); }
+      // if (coolie.user.imageUrl) { deleteFile(coolie.user.imageUrl); }
+      
+      return res.status(200).json({
+        success: true,
+        message: `Coolie registration rejected and user account deleted. Reason: ${rejectionReason || 'Not specified'}. The user will need to register again.`,
+        data: null // No coolie data to return as it's deleted
+      });
+    } else {
+      // If approved, update the coolie's status
+      coolie.isApproved = true;
+      await coolie.save();
+    }
     
     res.status(200).json({
       success: true,
@@ -273,6 +384,8 @@ exports.getAvailableCoolies = async (req, res) => {
   try {
     const { station, platformNumber } = req.query;
     
+    console.log(`[getAvailableCoolies] Received search request - Station: "${station}", Platform: "${platformNumber}"`);
+
     if (!station) {
       return res.status(400).json({
         success: false,
@@ -280,20 +393,27 @@ exports.getAvailableCoolies = async (req, res) => {
       });
     }
     
-    console.log(`Searching for coolies at station: ${station}, platform: ${platformNumber}`);
-    
+    // Log all potentially available coolies before specific station/platform filtering
+    const allPotentiallyAvailableCoolies = await Coolie.find({ 
+      isApproved: true, 
+      isAvailable: true 
+    }).populate('user', 'name').select('station platformNumbers isAvailable isApproved user');
+    console.log('[getAvailableCoolies] All potentially available coolies (approved & available):', JSON.stringify(allPotentiallyAvailableCoolies, null, 2));
+
     let query = {
-      station: { $regex: new RegExp('^' + station + '$', 'i') }, // Case-insensitive match
+      station: { $regex: new RegExp('^' + station.trim() + '$', 'i') }, // Trim station input
       isApproved: true,
       isAvailable: true
     };
     
-    if (platformNumber) {
-      // Convert platformNumber to Number to ensure proper comparison
-      query.platformNumbers = parseInt(platformNumber);
+    if (platformNumber && String(platformNumber).trim() !== "") {
+      const platformNum = parseInt(String(platformNumber).trim(), 10);
+      if (!isNaN(platformNum)) {
+        query.platformNumbers = { $in: [platformNum] }; // Use number for query
+      }
     }
     
-    console.log('Query:', JSON.stringify(query));
+    console.log('[getAvailableCoolies] Constructed MongoDB Query:', JSON.stringify(query));
     
     const coolies = await Coolie.find(query)
       .populate({
@@ -302,16 +422,10 @@ exports.getAvailableCoolies = async (req, res) => {
       })
       .sort('-averageRating');
     
-    console.log(`Found ${coolies.length} matching coolies`);
+    console.log(`[getAvailableCoolies] Found ${coolies.length} matching coolies after applying filters.`);
     
-    // If no coolies found, log all active coolies for debugging
     if (coolies.length === 0) {
-      const allActiveCoolies = await Coolie.find({
-        isApproved: true,
-        isAvailable: true
-      }).select('station platformNumbers');
-      
-      console.log('All active coolies:', JSON.stringify(allActiveCoolies));
+      console.log('[getAvailableCoolies] No coolies found for the given criteria. Double check station name and platform number against the list of all potentially available coolies above.');
     }
     
     res.status(200).json({
@@ -320,10 +434,10 @@ exports.getAvailableCoolies = async (req, res) => {
       data: coolies
     });
   } catch (error) {
-    console.error(error);
+    console.error('[getAvailableCoolies] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
     });
   }
-}; 
+};

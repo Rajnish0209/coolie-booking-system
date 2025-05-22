@@ -50,11 +50,23 @@ exports.registerCoolie = async (req, res) => {
       phone, 
       age, 
       gender, 
-      idProof, 
       idProofType,
+      idProofNumber,
       station, 
       platformNumbers 
     } = req.body;
+
+    let imageUrlPath;
+    let idProofUrlPath;
+
+    if (req.files) {
+      if (req.files.profileImage && req.files.profileImage[0]) {
+        imageUrlPath = `/uploads/${req.files.profileImage[0].filename}`;
+      }
+      if (req.files.idProofImage && req.files.idProofImage[0]) {
+        idProofUrlPath = `/uploads/${req.files.idProofImage[0].filename}`;
+      }
+    }
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -66,13 +78,23 @@ exports.registerCoolie = async (req, res) => {
       });
     }
 
+    // Check if ID proof number already exists
+    const coolieExistsByIdProof = await Coolie.findOne({ idProofNumber });
+    if (coolieExistsByIdProof) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID proof number already registered'
+      });
+    }
+
     // Create user with coolie role
     const user = await User.create({
       name,
       email,
       password,
       phone,
-      role: 'coolie'
+      role: 'coolie',
+      imageUrl: imageUrlPath 
     });
 
     // Create coolie profile
@@ -80,10 +102,11 @@ exports.registerCoolie = async (req, res) => {
       user: user._id,
       age,
       gender,
-      idProof,
       idProofType,
+      idProofNumber, 
+      idProofUrl: idProofUrlPath, 
       station,
-      platformNumbers,
+      platformNumbers: platformNumbers ? platformNumbers.split(',').map(p => p.trim()) : [],
       isApproved: false,
       isAvailable: false
     });
@@ -91,10 +114,17 @@ exports.registerCoolie = async (req, res) => {
     // Send token response
     sendTokenResponse(user, 201, res);
   } catch (error) {
-    console.error(error);
+    console.error('Error in registerCoolie:', error);
+    // Check for duplicate key error specifically for idProofNumber
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.idProofNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID proof number is already registered. Please use a different ID proof.'
+      });
+    }
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error during coolie registration'
     });
   }
 };
@@ -162,17 +192,39 @@ exports.login = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = req.user;
 
+    if (!user) {
+      console.error('getMe TRACER --- User object not found on req in getMe.');
+      return res.status(404).json({
+        success: false,
+        message: 'User not found after authentication'
+      });
+    }
+
+    // Add cache-disabling headers to ensure fresh data
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
+    console.log('getMe TRACER --- Sending user data (as data object):', user._id, user.role);
     res.status(200).json({
       success: true,
-      data: user
+      data: { // Reverted to use 'data' as the key for the user object
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        imageUrl: user.imageUrl,
+        phone: user.phone
+      }
     });
   } catch (error) {
-    console.error(error);
+    console.error('getMe TRACER --- Error in getMe controller:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error while retrieving user profile'
     });
   }
 };
@@ -181,9 +233,15 @@ exports.getMe = async (req, res) => {
 // @route   GET /api/auth/logout
 // @access  Private
 exports.logout = async (req, res) => {
-  res.cookie('token', 'none', {
-    expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
+  const cookieNames = ['token_passenger', 'token_coolie', 'token_admin', 'token'];
+  const cookieOptions = {
+    expires: new Date(Date.now() + 10 * 1000), // Short expiry to ensure clearance
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production'
+  };
+
+  cookieNames.forEach(cookieName => {
+    res.cookie(cookieName, 'none', cookieOptions);
   });
 
   res.status(200).json({
@@ -196,6 +254,7 @@ exports.logout = async (req, res) => {
 const sendTokenResponse = (user, statusCode, res) => {
   // Create token
   const token = user.getSignedJwtToken();
+  const currentRoleCookieName = `token_${user.role}`; // e.g., token_passenger, token_coolie
 
   const options = {
     expires: new Date(
@@ -204,14 +263,25 @@ const sendTokenResponse = (user, statusCode, res) => {
     httpOnly: true
   };
 
-  // Use secure flag in production
   if (process.env.NODE_ENV === 'production') {
     options.secure = true;
   }
 
-  res.status(statusCode).cookie('token', token, options).json({
+  // Clear other role-specific cookies and the generic 'token' cookie
+  const allPossibleCookieNames = ['token_passenger', 'token_coolie', 'token_admin', 'token'];
+  allPossibleCookieNames.forEach(cookieNameToClear => {
+    if (cookieNameToClear !== currentRoleCookieName) {
+      res.cookie(cookieNameToClear, 'none', {
+        expires: new Date(0), // Expire immediately
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production'
+      });
+    }
+  });
+
+  res.status(statusCode).cookie(currentRoleCookieName, token, options).json({
     success: true,
-    token,
+    token, // Keep token in response for frontend to use (e.g., store in localStorage)
     user: {
       id: user._id,
       name: user.name,
@@ -219,4 +289,4 @@ const sendTokenResponse = (user, statusCode, res) => {
       role: user.role
     }
   });
-}; 
+};
