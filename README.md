@@ -192,4 +192,4 @@ For more detailed information about the backend's folder structure, controllers,
 
 ## Contributors
 
-- Rajnish
+- Rajnish Gupta
